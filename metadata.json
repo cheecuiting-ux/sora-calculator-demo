@@ -1,0 +1,6 @@
+{
+  "name": "Singapore SORA Loan Calculator",
+  "description": "Calculates Singapore home loan interest and repayments using MAS-backed SORA overnight rates, compounded SORA conventions (Actual/365), and MAS stress-test benchmarking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
