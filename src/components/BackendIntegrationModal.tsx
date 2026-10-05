@@ -47,50 +47,31 @@ export const BackendIntegrationModal: React.FC<BackendIntegrationModalProps> = (
     onClose();
   };
 
-  // Sample Express backend code snippet
-  const sampleExpressSnippet = `// server/routes/masSora.ts
-import express from 'express';
+  // Sample serverless backend code snippet
+  const sampleServerlessSnippet = `// /api/sora.ts (Serverless Function)
+export const MAS_SORA_ENDPOINT =
+  'https://eservices.mas.gov.sg/apimg-gw/server/monthly_statistical_bulletin_non610mssql/domestic_interest_rates_daily/views/domestic_interest_rates_daily';
 
-const router = express.Router();
-const MAS_RESOURCE_ID = '${MAS_OFFICIAL_API_RESOURCE_ID}';
-const MAS_API_URL = 'https://eservices.mas.gov.sg/api/action/datastore/search.json';
-
-// In-memory cache (MAS updates SORA once daily at 9:00 AM SGT)
-let cachedRates: any = null;
-let lastFetchTime = 0;
-const CACHE_TTL_MS = 1000 * 60 * 30; // 30 minutes
-
-router.get('/api/mas-sora', async (req, res) => {
-  try {
-    const now = Date.now();
-    if (cachedRates && now - lastFetchTime < CACHE_TTL_MS) {
-      return res.json(cachedRates);
-    }
-
-    const response = await fetch(\`\${MAS_API_URL}?resource_id=\${MAS_RESOURCE_ID}&limit=90&sort=end_of_day desc\`, {
-      headers: { 'Accept': 'application/json' }
-    });
-
-    if (!response.ok) {
-      throw new Error(\`MAS API error: \${response.status}\`);
-    }
-
-    const data = await response.json();
-    cachedRates = data;
-    lastFetchTime = now;
-
-    res.json(data);
-  } catch (error: any) {
-    console.error('Failed to fetch from MAS Datastore:', error);
-    res.status(500).json({ error: error.message });
+export default async function handler(req, res) {
+  const masKeyId = process.env.MAS_KEY_ID;
+  if (!masKeyId) {
+    return res.status(401).json({ error: 'MAS_KEY_ID not set' });
   }
-});
 
-export default router;`;
+  const response = await fetch(MAS_SORA_ENDPOINT, {
+    headers: {
+      'KeyId': masKeyId.trim(),
+      'Accept': 'application/json'
+    }
+  });
+
+  const data = await response.json();
+  res.json(data);
+}`;
 
   const copyCode = async () => {
     try {
-      await navigator.clipboard.writeText(sampleExpressSnippet);
+      await navigator.clipboard.writeText(sampleServerlessSnippet);
       setCopiedCode(true);
       setTimeout(() => setCopiedCode(false), 2000);
     } catch (e) {
@@ -200,24 +181,26 @@ export default router;`;
             </p>
 
             <pre className="p-3 bg-slate-950 rounded-xl border border-slate-800/80 font-mono text-[11px] text-slate-300 overflow-x-auto max-h-48 leading-relaxed">
-              {sampleExpressSnippet}
+              {sampleServerlessSnippet}
             </pre>
           </div>
 
           {/* Official MAS resource details */}
           <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
-            <div className="text-slate-300 font-semibold">Official MAS Dataset Specs:</div>
+            <div className="text-slate-300 font-semibold">Active Serverless Endpoints:</div>
             <div>
-              <span className="text-slate-500 font-mono">Resource ID:</span>{' '}
-              <code className="text-cyan-400 font-mono">{MAS_OFFICIAL_API_RESOURCE_ID}</code>
+              <span className="text-slate-500 font-mono">/api/sora:</span>{' '}
+              <span className="text-slate-300">Pulls daily SORA + compounded averages from MAS with <code className="text-cyan-400 font-mono">KeyId: &lt;MAS_KEY_ID&gt;</code></span>
             </div>
             <div>
-              <span className="text-slate-500 font-mono">Dataset Name:</span>{' '}
-              <span>Domestic Interest Rates (SORA / Compounded SORA / SORA Index)</span>
+              <span className="text-slate-500 font-mono">/api/health:</span>{' '}
+              <span className="text-slate-300">Health check & MAS key configuration status</span>
             </div>
             <div>
-              <span className="text-slate-500 font-mono">Publication Schedule:</span>{' '}
-              <span>Every Singapore business day at 9:00 AM SGT</span>
+              <span className="text-slate-500 font-mono">MAS Gateway:</span>{' '}
+              <code className="text-cyan-400 font-mono break-all text-[10px]">
+                https://eservices.mas.gov.sg/apimg-gw/server/monthly_statistical_bulletin_non610mssql/domestic_interest_rates_daily/views/domestic_interest_rates_daily
+              </code>
             </div>
           </div>
         </div>

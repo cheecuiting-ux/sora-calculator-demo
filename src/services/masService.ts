@@ -18,9 +18,10 @@ export interface FetchMasRatesResult {
 
 /**
  * Reads MAS-backed overnight rates from either:
- * 1. User's backend proxy URL (if provided)
- * 2. Official MAS e-services Datastore API directly
- * 3. Graceful fallback to verified authentic MAS SORA benchmark dataset if CORS / network restricts direct client browser requests.
+ * 1. User's custom backend proxy URL (if provided)
+ * 2. Dedicated local/serverless endpoint /api/sora
+ * 3. Official MAS e-services Datastore API directly
+ * 4. Graceful fallback to verified authentic MAS SORA benchmark dataset if credentials or network restricts direct access.
  */
 export async function fetchMasSoraRates(options?: FetchMasRatesOptions): Promise<FetchMasRatesResult> {
   const limit = options?.limit || 60;
@@ -41,11 +42,28 @@ export async function fetchMasSoraRates(options?: FetchMasRatesOptions): Promise
         }
       }
     } catch (err) {
-      console.warn('Backend proxy fetch failed:', err);
+      console.warn('Custom backend proxy fetch failed:', err);
     }
   }
 
-  // 2. Try direct MAS Open Datastore API
+  // 2. Try the serverless /api/sora endpoint
+  try {
+    const soraResponse = await fetch('/api/sora');
+    if (soraResponse.ok) {
+      const data = await soraResponse.json();
+      if (data?.success && Array.isArray(data.records) && data.records.length > 0) {
+        return {
+          records: data.records,
+          source: 'BACKEND_PROXY',
+          lastUpdated: data.meta?.fetchedAt || new Date().toISOString()
+        };
+      }
+    }
+  } catch (err) {
+    // /api/sora not reachable or client running standalone
+  }
+
+  // 3. Try direct MAS Open Datastore API
   try {
     const directUrl = `${MAS_BASE_URL}?resource_id=${MAS_OFFICIAL_API_RESOURCE_ID}&limit=${limit}&sort=end_of_day%20desc`;
     const controller = new AbortController();
@@ -75,7 +93,7 @@ export async function fetchMasSoraRates(options?: FetchMasRatesOptions): Promise
     console.info('Direct MAS API request encountered CORS or network restriction. Using verified MAS benchmark dataset.', err);
   }
 
-  // 3. Fallback to authentic MAS historical dataset
+  // 4. Fallback to authentic MAS historical dataset
   return {
     records: DEFAULT_MAS_RATES,
     source: 'VERIFIED_OFFLINE_CACHE',
